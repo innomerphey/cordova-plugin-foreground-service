@@ -9,7 +9,7 @@ import android.app.NotificationManager;
 import android.os.IBinder;
 import android.os.Bundle;
 import android.annotation.TargetApi;
-
+import android.os.Build;
 public class ForegroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -87,10 +87,10 @@ public class ForegroundService extends Service {
         }
 
         // Put service in foreground and show notification (id of 0 is not allowed)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT < 34) {
         startForeground(id != 0 ? id : 197812504, notification);
         } else {
-            startForeground(id != 0 ? id : 197812504, notification,FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+            startForeground(id != 0 ? id : 197812504, notification,	android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         }
     }
 
