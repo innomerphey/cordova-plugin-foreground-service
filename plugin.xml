@@ -21,7 +21,8 @@
             </feature>
         </config-file>
         <config-file target="AndroidManifest.xml" parent="/*">
-            <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+          <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+          <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" android:minSdkVersion="34"/>
         </config-file>
     </platform>
 
