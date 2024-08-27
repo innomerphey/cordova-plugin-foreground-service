@@ -32,6 +32,7 @@ public class ForegroundPlugin extends CordovaPlugin {
                       jsonObject.put("importance", args.getString(3));
                       jsonObject.put("id", args.getString(4));
                       jsonObject.put("servename", args.getString(5));
+                      jsonObject.put("serviceType", args.getString(6));                    
                  String stringify = jsonObject.toString();
                   SharedPreferences.Editor editor = activity.getSharedPreferences("bt_sm_sb_fs", Context.MODE_PRIVATE).edit();
                   editor.putString("service_params", stringify);
@@ -43,7 +44,8 @@ public class ForegroundPlugin extends CordovaPlugin {
                     .putExtra("icon", args.getString(2))
                     .putExtra("importance", args.getString(3))
                     .putExtra("id", args.getString(4))
-                    .putExtra("servename", args.getString(5))               
+                    .putExtra("servename", args.getString(5))        
+                    .putExtra("serviceType", args.getString(6))                                   
                     ;
                 
                 // Start the service

@@ -61,7 +61,7 @@ public class ForegroundService extends Service {
             // We are not using IMPORTANCE_MIN because we want the notification to be visible
         }
 
-    String servename = (String) extras.get("servename");
+        String servename = (String) extras.get("servename");
         // Create notification channel
         NotificationChannel channel = new NotificationChannel("foreground.service.channel", servename, importance);
         channel.setDescription(servename);
@@ -90,12 +90,74 @@ public class ForegroundService extends Service {
         if (Build.VERSION.SDK_INT < 34) {
         startForeground(id != 0 ? id : 197812504, notification);
         } else {
-            startForeground(id != 0 ? id : 197812504, notification,	android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+          String fst="";
+          try {
+            fst =   extras.getString("serviceType");
+          } catch (Exception e) {
+          }
+          startForeground(id != 0 ? id : 197812504, notification,getForegroundServiceType(fst));
         }
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         throw new UnsupportedOperationException("Not yet implemented");
+    }
+    public static int getForegroundServiceType(String t){
+      int it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE;
+      switch(t) {
+        case "FOREGROUND_SERVICE_TYPE_MANIFEST":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_NONE":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_DATA_SYNC":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_PHONE_CALL":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_LOCATION":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_CAMERA":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_MICROPHONE":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+          break;
+        case "111111111111":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_HEALTH":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_SHORT_SERVICE":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT":
+          //it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT;
+          break;
+        case "FOREGROUND_SERVICE_TYPE_SPECIAL_USE":
+          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
+          break;
+      }
+      return it;
     }
 }
