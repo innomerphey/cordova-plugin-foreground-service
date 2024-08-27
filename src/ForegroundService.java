@@ -61,9 +61,10 @@ public class ForegroundService extends Service {
             // We are not using IMPORTANCE_MIN because we want the notification to be visible
         }
 
+    String servename = (String) extras.get("servename");
         // Create notification channel
-        NotificationChannel channel = new NotificationChannel("foreground.service.channel", "Background Services", importance);
-        channel.setDescription("Enables background processing.");
+        NotificationChannel channel = new NotificationChannel("foreground.service.channel", servename, importance);
+        channel.setDescription(servename);
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
 
         // Get notification icon
@@ -86,7 +87,11 @@ public class ForegroundService extends Service {
         }
 
         // Put service in foreground and show notification (id of 0 is not allowed)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         startForeground(id != 0 ? id : 197812504, notification);
+        } else {
+            startForeground(id != 0 ? id : 197812504, notification,FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        }
     }
 
     @Override
