@@ -13,6 +13,10 @@ import android.os.Build;
 public class ForegroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent == null) {
+            // Log an error or handle the case when the intent is null
+            return START_STICKY; // or return another appropriate value
+        }
         if (intent.getAction().equals("start")) {
             // Start the service
             startPluginForegroundService(intent.getExtras());
