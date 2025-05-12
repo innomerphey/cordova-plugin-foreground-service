@@ -10,6 +10,7 @@ import android.os.IBinder;
 import android.os.Bundle;
 import android.annotation.TargetApi;
 import android.os.Build;
+
 public class ForegroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -32,28 +33,28 @@ public class ForegroundService extends Service {
     @TargetApi(26)
     private void startPluginForegroundService(Bundle extras) {
         Context context = getApplicationContext();
+        final String TAG = "ForegroundService";
 
-        // Delete notification channel if it already exists
+        Log.d(TAG, "Starting service with extras: " + (extras != null ? extras.toString() : "null"));
+
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        // Prevent RuntimeException such as: Not allowed to delete channel foreground.service.channel with a foreground service
-        // See: https://github.com/DavidBriglio/cordova-plugin-foreground-service/issues/25
         try {
+            Log.d(TAG, "Attempting to delete channel: foreground.service.channel");
             manager.deleteNotificationChannel("foreground.service.channel");
-        } catch(Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to delete channel", e);
         }
 
-        // Get notification channel importance
         Integer importance;
-
         try {
             importance = Integer.parseInt((String) extras.get("importance"));
-        } catch (NumberFormatException e) {
+            Log.d(TAG, "Parsed importance: " + importance);
+        } catch (Exception e) {
+            Log.e(TAG, "Invalid importance value, defaulting to 1", e);
             importance = 1;
         }
 
-        switch(importance) {
+        switch (importance) {
             case 2:
                 importance = NotificationManager.IMPORTANCE_DEFAULT;
                 break;
@@ -62,44 +63,61 @@ public class ForegroundService extends Service {
                 break;
             default:
                 importance = NotificationManager.IMPORTANCE_LOW;
-            // We are not using IMPORTANCE_MIN because we want the notification to be visible
         }
+        Log.d(TAG, "Resolved NotificationManager importance: " + importance);
 
         String servename = (String) extras.get("servename");
-        // Create notification channel
-        NotificationChannel channel = new NotificationChannel("foreground.service.channel", servename, importance);
-        channel.setDescription(servename);
-        getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        Log.d(TAG, "Channel name (servename): " + servename);
 
-        // Get notification icon
-        int icon = getResources().getIdentifier((String) extras.get("icon"), "drawable", context.getPackageName());
+        try {
+            NotificationChannel channel = new NotificationChannel("foreground.service.channel", servename, importance);
+            channel.setDescription(servename);
+            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+            Log.d(TAG, "Notification channel created");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to create notification channel", e);
+        }
 
-        // Make notification
+        String iconName = (String) extras.get("icon");
+        int icon = getResources().getIdentifier(iconName, "drawable", context.getPackageName());
+        Log.d(TAG, "Icon name: " + iconName + ", resolved ID: " + icon);
+
+        String title = (String) extras.get("title");
+        String text = (String) extras.get("text");
+        Log.d(TAG, "Notification title: " + title);
+        Log.d(TAG, "Notification text: " + text);
+
         Notification notification = new Notification.Builder(context, "foreground.service.channel")
-            .setContentTitle((CharSequence) extras.get("title"))
-            .setContentText((CharSequence) extras.get("text"))
-            .setOngoing(true)
-            .setSmallIcon(icon == 0 ? 17301514 : icon) // Default is the star icon
-            .build();
+                .setContentTitle(title)
+                .setContentText(text)
+                .setOngoing(true)
+                .setSmallIcon(icon == 0 ? 17301514 : icon)
+                .build();
 
-        // Get notification ID
         Integer id;
         try {
             id = Integer.parseInt((String) extras.get("id"));
-        } catch (NumberFormatException e) {
+        } catch (Exception e) {
+            Log.e(TAG, "Invalid notification ID, defaulting to 0", e);
             id = 0;
         }
+        Log.d(TAG, "Notification ID: " + id);
 
-        // Put service in foreground and show notification (id of 0 is not allowed)
         if (Build.VERSION.SDK_INT < 34) {
-        startForeground(id != 0 ? id : 197812504, notification);
+            Log.d(TAG, "Calling startForeground() without service type (SDK < 34)");
+            startForeground(id != 0 ? id : 197812504, notification);
         } else {
-          String fst="";
-          try {
-            fst =   extras.getString("serviceType");
-          } catch (Exception e) {
-          }
-          startForeground(id != 0 ? id : 197812504, notification,getForegroundServiceType(fst));
+            String fst = "";
+            try {
+                fst = extras.getString("serviceType");
+                Log.d(TAG, "Requested foregroundServiceType: " + fst);
+            } catch (Exception e) {
+                Log.e(TAG, "Error reading serviceType", e);
+            }
+
+            int serviceType = getForegroundServiceType(fst);
+            Log.d(TAG, "Resolved serviceType constant: " + serviceType);
+            startForeground(id != 0 ? id : 197812504, notification, serviceType);
         }
     }
 
