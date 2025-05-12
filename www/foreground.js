@@ -20,7 +20,7 @@ module.exports = {
   // FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
   start: function(title, text, icon, importance, notificationId, servename,serviceType) {
         
-        exec(null, null, "ForegroundPlugin", "start", [title || "", text || "", icon || "", importance || "1", notificationId || "", servename || "", serviceType || "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK"]);
+        exec(null, null, "ForegroundPlugin", "start", [title || "", text || "", icon || "", importance || "1", notificationId || "", servename || "", serviceType || "FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE"]);
   },
   stop: function() {
     exec(null, null, "ForegroundPlugin", "stop", []);
