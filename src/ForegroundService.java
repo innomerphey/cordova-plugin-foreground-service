@@ -2,53 +2,91 @@ package com.davidbriglio.foreground;
 
 import android.content.Intent;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.app.Service;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.pm.ServiceInfo;
 import android.os.IBinder;
 import android.os.Bundle;
 import android.annotation.TargetApi;
 import android.os.Build;
 import android.util.Log;
+import org.json.JSONObject;
 
 public class ForegroundService extends Service {
+    private static final String TAG = "ForegroundService";
+    private static final String PREFS_NAME = "bt_sm_sb_fs";
+    private static final String PREFS_KEY_PARAMS = "service_params";
+    private static final String CHANNEL_ID = "foreground.service.channel";
+    private static final String DEFAULT_SERVICE_TYPE = "FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE";
+    private static final int DEFAULT_NOTIFICATION_ID = 197812504;
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) {
-            // Log an error or handle the case when the intent is null
-            return START_STICKY; // or return another appropriate value
+        // Sticky restart delivers a null Intent; some OEMs may also omit action.
+        // Restore saved params and call startForeground promptly to avoid
+        // ForegroundServiceDidNotStartInTimeException on targetSdk 34+.
+        if (intent == null || intent.getAction() == null) {
+            Bundle restored = loadSavedServiceParams();
+            if (restored != null) {
+                startPluginForegroundService(restored);
+                return START_STICKY;
+            }
+            stopSelf();
+            return START_NOT_STICKY;
         }
-        if (intent.getAction().equals("start")) {
-            // Start the service
-            startPluginForegroundService(intent.getExtras());
-        } else {
-            // Stop the service
+
+        String action = intent.getAction();
+        if ("start".equals(action)) {
+            Bundle extras = intent.getExtras();
+            if (extras == null) {
+                extras = loadSavedServiceParams();
+            }
+            if (extras != null) {
+                startPluginForegroundService(extras);
+            } else {
+                Log.e(TAG, "start action received without extras or saved params");
+                stopSelf();
+                return START_NOT_STICKY;
+            }
+        } else if ("stop".equals(action)) {
+            clearSavedServiceParams();
             stopForeground(true);
             stopSelf();
+            return START_NOT_STICKY;
         }
 
         return START_STICKY;
     }
 
+    @Override
+    public void onDestroy() {
+        try {
+            stopForeground(true);
+        } catch (Exception e) {
+            Log.e(TAG, "stopForeground in onDestroy failed", e);
+        }
+        super.onDestroy();
+    }
+
     @TargetApi(26)
     private void startPluginForegroundService(Bundle extras) {
         Context context = getApplicationContext();
-        final String TAG = "ForegroundService";
 
         Log.d(TAG, "Starting service with extras: " + (extras != null ? extras.toString() : "null"));
+        if (extras == null) {
+            Log.e(TAG, "Cannot start foreground service with null extras");
+            stopSelf();
+            return;
+        }
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        try {
-            Log.d(TAG, "Attempting to delete channel: foreground.service.channel");
-            manager.deleteNotificationChannel("foreground.service.channel");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to delete channel", e);
-        }
 
         Integer importance;
         try {
-            importance = Integer.parseInt((String) extras.get("importance"));
+            importance = Integer.parseInt(String.valueOf(extras.get("importance")));
             Log.d(TAG, "Parsed importance: " + importance);
         } catch (Exception e) {
             Log.e(TAG, "Invalid importance value, defaulting to 1", e);
@@ -67,120 +105,169 @@ public class ForegroundService extends Service {
         }
         Log.d(TAG, "Resolved NotificationManager importance: " + importance);
 
-        String servename = (String) extras.get("servename");
+        String servename = extras.getString("servename");
+        if (servename == null || servename.isEmpty()) {
+            servename = "Foreground Service";
+        }
         Log.d(TAG, "Channel name (servename): " + servename);
 
+        // createNotificationChannel is idempotent for an existing channel id;
+        // do not delete/recreate on every start (preserves user channel settings).
         try {
-            NotificationChannel channel = new NotificationChannel("foreground.service.channel", servename, importance);
-            channel.setDescription(servename);
-            getSystemService(NotificationManager.class).createNotificationChannel(channel);
-            Log.d(TAG, "Notification channel created");
+            if (manager != null && manager.getNotificationChannel(CHANNEL_ID) == null) {
+                NotificationChannel channel = new NotificationChannel(CHANNEL_ID, servename, importance);
+                channel.setDescription(servename);
+                manager.createNotificationChannel(channel);
+                Log.d(TAG, "Notification channel created");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to create notification channel", e);
         }
 
-        String iconName = (String) extras.get("icon");
-        int icon = getResources().getIdentifier(iconName, "drawable", context.getPackageName());
+        String iconName = extras.getString("icon");
+        int icon = 0;
+        if (iconName != null && !iconName.isEmpty()) {
+            icon = getResources().getIdentifier(iconName, "drawable", context.getPackageName());
+        }
         Log.d(TAG, "Icon name: " + iconName + ", resolved ID: " + icon);
 
-        String title = (String) extras.get("title");
-        String text = (String) extras.get("text");
+        String title = extras.getString("title");
+        String text = extras.getString("text");
         Log.d(TAG, "Notification title: " + title);
         Log.d(TAG, "Notification text: " + text);
 
-        Notification notification = new Notification.Builder(context, "foreground.service.channel")
-                .setContentTitle(title)
-                .setContentText(text)
+        Notification notification = new Notification.Builder(context, CHANNEL_ID)
+                .setContentTitle(title != null ? title : "")
+                .setContentText(text != null ? text : "")
                 .setOngoing(true)
                 .setSmallIcon(icon == 0 ? 17301514 : icon)
                 .build();
 
         Integer id;
         try {
-            id = Integer.parseInt((String) extras.get("id"));
+            id = Integer.parseInt(String.valueOf(extras.get("id")));
         } catch (Exception e) {
             Log.e(TAG, "Invalid notification ID, defaulting to 0", e);
             id = 0;
         }
         Log.d(TAG, "Notification ID: " + id);
 
+        int notificationId = id != 0 ? id : DEFAULT_NOTIFICATION_ID;
+
         if (Build.VERSION.SDK_INT < 34) {
             Log.d(TAG, "Calling startForeground() without service type (SDK < 34)");
-            startForeground(id != 0 ? id : 197812504, notification);
+            startForeground(notificationId, notification);
         } else {
-            String fst = "";
-            try {
-                fst = extras.getString("serviceType");
-                Log.d(TAG, "Requested foregroundServiceType: " + fst);
-            } catch (Exception e) {
-                Log.e(TAG, "Error reading serviceType", e);
+            String fst = extras.getString("serviceType");
+            if (fst == null || fst.isEmpty()) {
+                fst = DEFAULT_SERVICE_TYPE;
             }
+            Log.d(TAG, "Requested foregroundServiceType: " + fst);
 
             int serviceType = getForegroundServiceType(fst);
             Log.d(TAG, "Resolved serviceType constant: " + serviceType);
-            startForeground(id != 0 ? id : 197812504, notification, serviceType);
+            startForeground(notificationId, notification, serviceType);
         }
+    }
+
+    private Bundle loadSavedServiceParams() {
+        SharedPreferences prefs = getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String stringify = prefs.getString(PREFS_KEY_PARAMS, null);
+        if (stringify == null || stringify.isEmpty()) {
+            Log.e(TAG, "No saved service_params for sticky restart");
+            return null;
+        }
+        try {
+            JSONObject json = new JSONObject(stringify);
+            Bundle extras = new Bundle();
+            extras.putString("title", json.optString("title", ""));
+            extras.putString("text", json.optString("text", ""));
+            extras.putString("icon", json.optString("icon", ""));
+            extras.putString("importance", json.optString("importance", "1"));
+            extras.putString("id", json.optString("id", ""));
+            extras.putString("servename", json.optString("servename", ""));
+            extras.putString("serviceType", json.optString("serviceType", DEFAULT_SERVICE_TYPE));
+            Log.d(TAG, "Restored service_params for sticky restart");
+            return extras;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to restore service_params", e);
+            return null;
+        }
+    }
+
+    private void clearSavedServiceParams() {
+        SharedPreferences.Editor editor =
+            getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+        editor.remove(PREFS_KEY_PARAMS);
+        editor.apply();
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         throw new UnsupportedOperationException("Not yet implemented");
     }
-    public static int getForegroundServiceType(String t){
-      int it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE;
-      switch(t) {
-        case "FOREGROUND_SERVICE_TYPE_MANIFEST":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_NONE":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_DATA_SYNC":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_PHONE_CALL":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_LOCATION":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_CAMERA":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_MICROPHONE":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-          break;
-        case "111111111111":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_HEALTH":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_SHORT_SERVICE":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT":
-          //it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT;
-          break;
-        case "FOREGROUND_SERVICE_TYPE_SPECIAL_USE":
-          it=android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
-          break;
-      }
-      return it;
+
+    public static int getForegroundServiceType(String t) {
+        if (t == null || t.isEmpty()) {
+            return ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+        }
+        int it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+        switch (t) {
+            case "FOREGROUND_SERVICE_TYPE_MANIFEST":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_NONE":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_DATA_SYNC":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_PHONE_CALL":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_LOCATION":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_CAMERA":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_MICROPHONE":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+                break;
+            case "111111111111":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_HEALTH":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_SHORT_SERVICE":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE;
+                break;
+            case "FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT":
+                // FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT is not available on all SDKs
+                break;
+            case "FOREGROUND_SERVICE_TYPE_SPECIAL_USE":
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
+                break;
+            default:
+                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+                break;
+        }
+        return it;
     }
 }

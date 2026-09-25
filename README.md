@@ -1,5 +1,7 @@
 # cordova-plugin-foreground-service [![npm version](https://badge.fury.io/js/cordova-plugin-foreground-service.svg)](https://badge.fury.io/js/cordova-plugin-foreground-service)
 
+**SHD vendor fork** of the source-controlled PregnancyCoach plugin package (`1.1.4`). Public JS API, plugin id, and version are unchanged. Local fixes cover targetSdk 36 sticky restart, null-safe actions, `stopService` stop path, connected-device manifest declarations, and notification-channel reuse. Validate with `node validate.js`.
+
 ***NOTE***: This plugin does not on its own allow the user to execute javascript while the app is in the background. This must be accompanied by another plugin that will create a background process that will give the application background cycles. This plugin mainly exists to solve the problem outlined [here](https://developer.android.com/about/versions/oreo/background#services). An app will have restricted background processing if it is not considered a "foreground app" for android API 26+ and will prevent background pluggins from functioning properly. With this plugin your application will be a foreground app and let your background services run properly. This plugin may also help with [android doze](https://developer.android.com/training/monitoring-device-state/doze-standby#understand_app_standby) where an application may not run in the background unless it also has a foreground process. Do not expect this plugin on its own to allow your app to execute javascript while in the background.
 
 ---

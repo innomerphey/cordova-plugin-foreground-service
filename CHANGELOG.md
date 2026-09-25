@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.4 (SHD vendor fork)
+
+- Sticky null-Intent restart restores saved `service_params` and calls `startForeground` promptly with `connectedDevice`.
+- Null-safe action handling in plugin and service.
+- Stop uses `stopService` instead of background `startService`.
+- `plugin.xml` declares `exported=false`, `stopWithTask=true`, `foregroundServiceType=connectedDevice`, plus `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_CONNECTED_DEVICE`.
+- Avoid deleting/recreating the notification channel on every start.
+
 ## 1.1.3 - 17-12-2019
 
 - Added FOREGROUND_SERVICE permission
