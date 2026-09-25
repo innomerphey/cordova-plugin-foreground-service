@@ -204,70 +204,17 @@ public class ForegroundService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return null;
     }
 
+    /**
+     * The manifest declares only connectedDevice. Any other type makes
+     * startForeground throw SecurityException on targetSdk 34+.
+     */
     public static int getForegroundServiceType(String t) {
-        if (t == null || t.isEmpty()) {
-            return ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
+        if (t != null && !t.isEmpty() && !"FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE".equals(t)) {
+            Log.w(TAG, "Ignoring foreground service type " + t + "; manifest allows connectedDevice only");
         }
-        int it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
-        switch (t) {
-            case "FOREGROUND_SERVICE_TYPE_MANIFEST":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_NONE":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_DATA_SYNC":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_PHONE_CALL":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_LOCATION":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_CAMERA":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_MICROPHONE":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-                break;
-            case "111111111111":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_HEALTH":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_SHORT_SERVICE":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE;
-                break;
-            case "FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT":
-                // FOREGROUND_SERVICE_TYPE_FILE_MANAGEMENT is not available on all SDKs
-                break;
-            case "FOREGROUND_SERVICE_TYPE_SPECIAL_USE":
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
-                break;
-            default:
-                it = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
-                break;
-        }
-        return it;
+        return ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE;
     }
 }

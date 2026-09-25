@@ -88,16 +88,7 @@ function simulateLoadSavedParams(jsonText) {
   };
 }
 
-function resolveServiceType(t) {
-  if (!t) {
-    return 'CONNECTED_DEVICE';
-  }
-  if (t === 'FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE') {
-    return 'CONNECTED_DEVICE';
-  }
-  if (t === 'FOREGROUND_SERVICE_TYPE_NONE') {
-    return 'NONE';
-  }
+function resolveServiceType() {
   return 'CONNECTED_DEVICE';
 }
 
@@ -117,6 +108,10 @@ assert(resolveServiceType(restored.serviceType) === 'CONNECTED_DEVICE', 'restore
 assert(simulateLoadSavedParams(null) === null, 'missing params must not invent a start');
 assert(resolveServiceType(null) === 'CONNECTED_DEVICE', 'null type defaults to connectedDevice');
 assert(resolveServiceType('') === 'CONNECTED_DEVICE', 'empty type defaults to connectedDevice');
+assert(resolveServiceType('FOREGROUND_SERVICE_TYPE_NONE') === 'CONNECTED_DEVICE', 'undeclared types stay connectedDevice');
+assert(resolveServiceType('111111111111') === 'CONNECTED_DEVICE', 'junk types stay connectedDevice');
+assertNotIncludes(serviceJava, 'FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION', 'Must not start a type absent from the manifest');
+assertNotIncludes(serviceJava, 'UnsupportedOperationException', 'onBind must not throw');
 
 if (failures.length) {
   console.error('validate: FAILED');
